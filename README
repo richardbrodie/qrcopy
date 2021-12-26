@@ -1,0 +1,14 @@
+# Qrcopy
+
+Quickly and easily copy files directly from a computer to a phone without the need for any running services.
+
+It works by creating a temporary HTTP server and generating a QR code with a one-time URL the phone can use to download the file. 
+
+## Known limitations
+
+Phone and computer need to be on the same network
+
+## Development
+
+- See [here](https://rustup.rs/) for how to set up rust
+- Run `cargo check` / `cargo run`
