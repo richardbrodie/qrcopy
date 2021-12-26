@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[allow(dead_code)]
 
 const NUMERIC: &[u8] = &[48, 49, 50, 51, 52, 53, 54, 55, 56, 57];
@@ -6,8 +8,19 @@ const ALPHANUMERIC: &[u8] = &[
     80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
 ];
 
+// Simple lookup table based on this: https://www.thonky.com/qr-code-tutorial/alphanumeric-table
+// table[ACSII_value] = QR_value
+const ALPHANUMERIC_TABLE: &[u8] = &[
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    36, 0, 0, 0, 37, 38, 0, 0, 0, 0, 39, 40, 0, 41, 42, 43, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 44, 0, 0,
+    0, 0, 0, 0, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+    31, 32, 33, 34, 35,
+];
+
 fn main() {
-    let data = "HELLO WORLD";
+    let data = "Hello, World!";
+    // let data = "HELLO WORLD";
+    // let data = "1123581321";
     let qr = QrCode::new(data.as_bytes());
     qr.encode();
 }
@@ -15,6 +28,16 @@ fn main() {
 #[derive(Debug)]
 struct Bitstring {
     data: Vec<bool>,
+}
+impl fmt::Display for Bitstring {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s: String = self
+            .data
+            .iter()
+            .map(|e| if *e { "1" } else { "0" })
+            .collect();
+        write!(f, "{}", s)
+    }
 }
 impl Bitstring {
     fn pad(&mut self, bit: bool, bits: usize) {
@@ -123,8 +146,49 @@ impl QrCode {
 
         bitstring.push(char_count, char_count_bitlength);
 
-        dbg!(bitstring);
+        self.encode_data(&mut bitstring);
+        println!("{}", bitstring);
     }
+
+    fn encode_data(&self, bitstring: &mut Bitstring) {
+        match self.mode {
+            DataMode::Numeric => encode_numeric(&self.data, bitstring),
+            DataMode::Alphanumeric => encode_alphanumeric(&self.data, bitstring),
+            DataMode::Text => encode_text(&self.data, bitstring),
+            DataMode::Kanji => panic!("kanji not supported"),
+        };
+    }
+}
+
+fn encode_numeric(data: &[u8], bitstring: &mut Bitstring) {
+    data.chunks(3).for_each(|c| {
+        let n: usize = std::str::from_utf8(c).unwrap().parse().unwrap();
+        if n >= 100 {
+            bitstring.push(n, 10);
+        } else if n >= 10 {
+            bitstring.push(n, 7);
+        } else {
+            bitstring.push(n, 4);
+        }
+    });
+}
+
+fn encode_alphanumeric(data: &[u8], bitstring: &mut Bitstring) {
+    data.chunks(2).for_each(|c| match c {
+        [a, b] => {
+            let n = ALPHANUMERIC_TABLE[*a as usize] as usize * 45usize + *b as usize;
+            bitstring.push(n.into(), 11);
+        }
+        [a] => {
+            let n = ALPHANUMERIC_TABLE[*a as usize].into();
+            bitstring.push(n, 6);
+        }
+        _ => panic!("wtf, can't be here"),
+    });
+}
+
+fn encode_text(data: &[u8], bitstring: &mut Bitstring) {
+    data.iter().for_each(|c| bitstring.push(*c as usize, 8));
 }
 
 fn identify_data_mode(data: &[u8]) -> DataMode {
