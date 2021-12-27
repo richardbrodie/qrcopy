@@ -13,7 +13,7 @@ pub const ALPHANUMERIC_TABLE: &[u8] = &[
     31, 32, 33, 34, 35,
 ];
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DataMode {
     Numeric,
     Alphanumeric,
@@ -28,10 +28,10 @@ impl Default for DataMode {
 impl DataMode {
     pub fn encode(&self) -> u8 {
         match self {
-            Self::Numeric => 1,
-            Self::Alphanumeric => 2,
-            Self::Text => 4,
-            Self::Kanji => 8,
+            Self::Numeric => 0b0001,
+            Self::Alphanumeric => 0b0010,
+            Self::Text => 0b0100,
+            Self::Kanji => 0b1000,
         }
     }
 }
@@ -76,16 +76,60 @@ pub fn count_length(mode: DataMode, version: u8) -> usize {
 
 pub fn identify_data_mode(data: &[u8]) -> DataMode {
     if data.iter().all(|e| NUMERIC.contains(e)) {
-        println!("numeric");
         DataMode::Numeric
     } else if data
         .iter()
         .all(|e| NUMERIC.contains(e) | ALPHANUMERIC.contains(e))
     {
-        println!("alphanumeric");
         DataMode::Alphanumeric
     } else {
-        println!("text");
         DataMode::Text
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::qr_spec::ALPHANUMERIC_TABLE;
+
+    use super::{identify_data_mode, DataMode};
+
+    #[test]
+    fn test_identify_numeric_mode() {
+        assert!(matches!(
+            identify_data_mode("123".as_bytes()),
+            DataMode::Numeric
+        ));
+    }
+
+    #[test]
+    fn test_identify_alphanumeric_mode() {
+        assert!(matches!(
+            identify_data_mode("HELLO WORLD".as_bytes()),
+            DataMode::Alphanumeric
+        ));
+        assert!(matches!(
+            identify_data_mode("ABC123".as_bytes()),
+            DataMode::Alphanumeric
+        ));
+    }
+
+    #[test]
+    fn test_identify_text_mode() {
+        assert!(matches!(
+            identify_data_mode("Hello World".as_bytes()),
+            DataMode::Text
+        ));
+        assert!(matches!(
+            identify_data_mode("Hello, World!".as_bytes()),
+            DataMode::Text
+        ));
+    }
+
+    #[test]
+    fn test_alphanumeric_lookup() {
+        let h = *"H".as_bytes().first().unwrap() as usize;
+        let e = *"E".as_bytes().first().unwrap() as usize;
+        assert_eq!(ALPHANUMERIC_TABLE[h], 17);
+        assert_eq!(ALPHANUMERIC_TABLE[e], 14);
     }
 }
